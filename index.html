@@ -18,6 +18,22 @@
             color: #ff0000;
             min-height: 100vh;
             padding: 20px;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('https://images.unsplash.com/photo-1559587393-cded28a4f78d?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=3174');
+            background-size: cover;
+            background-position: center;
+            opacity: 0.15;
+            z-index: -1;
+            pointer-events: none;
         }
 
         .container {
@@ -104,10 +120,11 @@
 
         .season {
             margin-bottom: 30px;
-            background: rgba(26, 0, 0, 0.5);
+            background: rgba(26, 0, 0, 0.8);
             border: 2px solid #ff0000;
             padding: 20px;
             box-shadow: 0 0 15px rgba(255, 0, 0, 0.3);
+            backdrop-filter: blur(5px);
         }
 
         .season-header {
@@ -120,10 +137,11 @@
         }
 
         .episode {
-            background: rgba(0, 0, 0, 0.6);
+            background: rgba(0, 0, 0, 0.8);
             border: 1px solid #660000;
             padding: 15px;
             margin-bottom: 15px;
+            backdrop-filter: blur(3px);
         }
 
         .episode-header {
@@ -188,6 +206,77 @@
             font-size: 1.1em;
             color: #ff6666;
         }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #1a0000;
+            border: 3px solid #ff0000;
+            padding: 30px;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 0 30px #ff0000;
+        }
+
+        .modal-content h2 {
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        .modal-content input {
+            width: 100%;
+            padding: 12px;
+            background: #0a0a0a;
+            border: 2px solid #ff0000;
+            color: #ff0000;
+            font-family: 'Courier New', monospace;
+            font-size: 1.1em;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .modal-content button {
+            padding: 12px 30px;
+            background: #ff0000;
+            border: none;
+            color: #000;
+            font-family: 'Courier New', monospace;
+            font-size: 1.1em;
+            cursor: pointer;
+            margin: 0 5px;
+            text-transform: uppercase;
+        }
+
+        .modal-content button:hover {
+            background: #cc0000;
+        }
+
+        .modal-content .cancel {
+            background: #660000;
+            color: #ff0000;
+        }
+
+        .info-text {
+            text-align: center;
+            color: #ff6666;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+        }
     </style>
 </head>
 
@@ -195,17 +284,46 @@
     <div class="container">
         <h1>STRANGER THINGS</h1>
         <p class="subtitle">Marathon Tracker • Seasons 1-4</p>
+        <p class="info-text">🔓 Everyone can view • 🔒 Password needed to edit</p>
 
         <div class="tabs">
-            <button class="tab active" onclick="switchTracker('tracker1')">Aseel</button>
-            <button class="tab" onclick="switchTracker('tracker2')">Roya</button>
+            <button class="tab active" onclick="switchTracker('aseel')">Aseel</button>
+            <button class="tab" onclick="switchTracker('roya')">Roya</button>
         </div>
 
-        <div id="tracker1" class="tracker active"></div>
-        <div id="tracker2" class="tracker"></div>
+        <div id="aseel-tracker" class="tracker active"></div>
+        <div id="roya-tracker" class="tracker"></div>
     </div>
 
-    <script>
+    <div id="password-modal" class="modal">
+        <div class="modal-content">
+            <h2>🔒 Password Required</h2>
+            <p style="color: #ff6666; margin-bottom: 15px;">Enter password to modify <span id="tracker-name"></span>'s
+                tracker</p>
+            <input type="password" id="password-input" placeholder="Enter password">
+            <div>
+                <button onclick="submitPassword()">Unlock</button>
+                <button class="cancel" onclick="cancelPassword()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyALUbTBhIHATPZ65qAHhftKfmkwIctisQ8",
+            authDomain: "stranger-things-tracker.firebaseapp.com",
+            projectId: "stranger-things-tracker",
+            storageBucket: "stranger-things-tracker.firebasestorage.app",
+            messagingSenderId: "603081994127",
+            appId: "1:603081994127:web:64fb696b2b46080a7ae5fa"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
         const episodes = {
             1: [
                 "Chapter One: The Vanishing of Will Byers",
@@ -251,8 +369,90 @@
             ]
         };
 
-        function createTracker(trackerId) {
-            const container = document.getElementById(trackerId);
+        let currentTracker = 'aseel';
+        let pendingAction = null;
+        let unlockedTrackers = {};
+
+        window.switchTracker = function (trackerId) {
+            currentTracker = trackerId;
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tracker').forEach(tracker => tracker.classList.remove('active'));
+
+            event.target.classList.add('active');
+            document.getElementById(`${trackerId}-tracker`).classList.add('active');
+        };
+
+        window.requestPassword = function (action, trackerName) {
+            pendingAction = action;
+            document.getElementById('tracker-name').textContent = trackerName.charAt(0).toUpperCase() + trackerName.slice(1);
+            document.getElementById('password-modal').classList.add('active');
+            document.getElementById('password-input').value = '';
+            document.getElementById('password-input').focus();
+        };
+
+        window.submitPassword = function () {
+            const password = document.getElementById('password-input').value;
+            const trackerName = document.getElementById('tracker-name').textContent.toLowerCase();
+
+            if (password === trackerName) {
+                unlockedTrackers[trackerName] = true;
+                document.getElementById('password-modal').classList.remove('active');
+                if (pendingAction) {
+                    pendingAction();
+                    pendingAction = null;
+                }
+            } else {
+                alert('❌ Incorrect password! Try again.');
+                document.getElementById('password-input').value = '';
+                document.getElementById('password-input').focus();
+            }
+        };
+
+        window.cancelPassword = function () {
+            document.getElementById('password-modal').classList.remove('active');
+            pendingAction = null;
+
+            if (currentTracker) {
+                loadData(currentTracker);
+            }
+        };
+
+        document.getElementById('password-input').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                window.submitPassword();
+            }
+        });
+
+        window.handleCheckbox = function (checkboxId, trackerId) {
+            const checkbox = document.getElementById(checkboxId);
+
+            if (unlockedTrackers[trackerId]) {
+                saveData(trackerId);
+            } else {
+                const previousState = checkbox.checked;
+                checkbox.checked = !previousState;
+
+                requestPassword(() => {
+                    checkbox.checked = previousState;
+                    saveData(trackerId);
+                }, trackerId);
+            }
+        };
+
+        window.handleNotes = function (textareaId, trackerId) {
+            if (!unlockedTrackers[trackerId]) {
+                const textarea = document.getElementById(textareaId);
+                const originalValue = textarea.value;
+                textarea.blur();
+
+                requestPassword(() => {
+                    textarea.focus();
+                }, trackerId);
+            }
+        };
+
+        async function createTracker(trackerId) {
+            const container = document.getElementById(`${trackerId}-tracker`);
             let html = '';
             let totalEpisodes = 0;
 
@@ -268,12 +468,13 @@
                     html += `
                         <div class="episode">
                             <div class="episode-header">
-                                <input type="checkbox" class="checkbox" id="${id}" onchange="updateProgress('${trackerId}')">
+                                <input type="checkbox" class="checkbox" id="${id}" onchange="handleCheckbox('${id}', '${trackerId}')">
                                 <label for="${id}" class="episode-title">S${season}E${episodeNum}: ${title}</label>
                             </div>
-                            <textarea class="notes-area" placeholder="Your theories and notes for Season 5..." 
-                                onchange="saveData('${trackerId}')"
-                                id="${id}-notes"></textarea>
+                            <textarea class="notes-area" placeholder="Theories and notes for Season 5..." 
+                                id="${id}-notes"
+                                onfocus="handleNotes('${id}-notes', '${trackerId}')"
+                                onblur="saveData('${trackerId}')"></textarea>
                         </div>`;
                 });
 
@@ -288,72 +489,107 @@
             `;
 
             container.innerHTML = html;
-            loadData(trackerId);
+
+            const docRef = doc(db, 'trackers', trackerId);
+            onSnapshot(docRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    updateUI(trackerId, data);
+                }
+            });
         }
 
-        function switchTracker(trackerId) {
-            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-            document.querySelectorAll('.tracker').forEach(tracker => tracker.classList.remove('active'));
+        function updateUI(trackerId, data) {
+            if (!data) return;
 
-            event.target.classList.add('active');
-            document.getElementById(trackerId).classList.add('active');
+            const checkboxes = document.querySelectorAll(`#${trackerId}-tracker .checkbox`);
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
+
+            data.checked?.forEach(id => {
+                const checkbox = document.getElementById(id);
+                if (checkbox) checkbox.checked = true;
+            });
+
+            if (data.notes) {
+                Object.keys(data.notes).forEach(id => {
+                    const textarea = document.getElementById(id);
+                    if (textarea && textarea !== document.activeElement) {
+                        textarea.value = data.notes[id];
+                    }
+                });
+            }
+
+            updateProgress(trackerId);
         }
 
         function updateProgress(trackerId) {
-            const checkboxes = document.querySelectorAll(`#${trackerId} .checkbox`);
-            const checked = document.querySelectorAll(`#${trackerId} .checkbox:checked`).length;
+            const checkboxes = document.querySelectorAll(`#${trackerId}-tracker .checkbox`);
+            const checked = document.querySelectorAll(`#${trackerId}-tracker .checkbox:checked`).length;
             const total = checkboxes.length;
             const percentage = Math.round((checked / total) * 100);
 
-            document.getElementById(`${trackerId}-progress`).style.width = percentage + '%';
-            document.getElementById(`${trackerId}-progress`).textContent = percentage + '%';
-            document.getElementById(`${trackerId}-stats`).textContent = `${checked} of ${total} episodes watched`;
+            const progressBar = document.getElementById(`${trackerId}-progress`);
+            const stats = document.getElementById(`${trackerId}-stats`);
 
-            saveData(trackerId);
+            if (progressBar) {
+                progressBar.style.width = percentage + '%';
+                progressBar.textContent = percentage + '%';
+            }
+
+            if (stats) {
+                stats.textContent = `${checked} of ${total} episodes watched`;
+            }
         }
 
-        function saveData(trackerId) {
+        window.updateProgress = updateProgress;
+
+        async function saveData(trackerId) {
+            if (!unlockedTrackers[trackerId]) return;
+
             const data = {
                 checked: [],
                 notes: {}
             };
 
-            document.querySelectorAll(`#${trackerId} .checkbox`).forEach(checkbox => {
+            document.querySelectorAll(`#${trackerId}-tracker .checkbox`).forEach(checkbox => {
                 if (checkbox.checked) {
                     data.checked.push(checkbox.id);
                 }
             });
 
-            document.querySelectorAll(`#${trackerId} .notes-area`).forEach(textarea => {
-                if (textarea.value) {
+            document.querySelectorAll(`#${trackerId}-tracker .notes-area`).forEach(textarea => {
+                if (textarea.value.trim()) {
                     data.notes[textarea.id] = textarea.value;
                 }
             });
 
-            localStorage.setItem(trackerId, JSON.stringify(data));
-        }
-
-        function loadData(trackerId) {
-            const saved = localStorage.getItem(trackerId);
-            if (saved) {
-                const data = JSON.parse(saved);
-
-                data.checked.forEach(id => {
-                    const checkbox = document.getElementById(id);
-                    if (checkbox) checkbox.checked = true;
-                });
-
-                Object.keys(data.notes).forEach(id => {
-                    const textarea = document.getElementById(id);
-                    if (textarea) textarea.value = data.notes[id];
-                });
-
-                updateProgress(trackerId);
+            try {
+                await setDoc(doc(db, 'trackers', trackerId), data);
+            } catch (error) {
+                console.error('Error saving data:', error);
+                alert('Error saving data. Please try again.');
             }
         }
 
-        createTracker('tracker1');
-        createTracker('tracker2');
+        window.saveData = saveData;
+
+        async function loadData(trackerId) {
+            try {
+                const docRef = doc(db, 'trackers', trackerId);
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists()) {
+                    updateUI(trackerId, docSnap.data());
+                }
+            } catch (error) {
+                console.error('Error loading data:', error);
+            }
+        }
+
+        createTracker('aseel');
+        createTracker('roya');
     </script>
 </body>
 
