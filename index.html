@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stranger Things Marathon Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(180deg, #0a0a0a 0%, #1a0000 100%);
+            color: #ff0000;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px #ff0000, 0 0 40px #ff0000;
+            animation: flicker 3s infinite alternate;
+            letter-spacing: 3px;
+        }
+
+        @keyframes flicker {
+
+            0%,
+            19%,
+            21%,
+            23%,
+            25%,
+            54%,
+            56%,
+            100% {
+                text-shadow: 0 0 20px #ff0000, 0 0 40px #ff0000;
+                opacity: 1;
+            }
+
+            20%,
+            24%,
+            55% {
+                text-shadow: none;
+                opacity: 0.8;
+            }
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #ff6666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        .tab {
+            padding: 12px 30px;
+            background: #1a0000;
+            border: 2px solid #ff0000;
+            color: #ff0000;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 1.1em;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .tab:hover {
+            background: #330000;
+            box-shadow: 0 0 15px #ff0000;
+        }
+
+        .tab.active {
+            background: #ff0000;
+            color: #000;
+            box-shadow: 0 0 20px #ff0000;
+        }
+
+        .tracker {
+            display: none;
+        }
+
+        .tracker.active {
+            display: block;
+        }
+
+        .season {
+            margin-bottom: 30px;
+            background: rgba(26, 0, 0, 0.5);
+            border: 2px solid #ff0000;
+            padding: 20px;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.3);
+        }
+
+        .season-header {
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-bottom: 1px solid #ff0000;
+            padding-bottom: 10px;
+        }
+
+        .episode {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid #660000;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .episode-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+
+        .checkbox {
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            accent-color: #ff0000;
+        }
+
+        .episode-title {
+            font-size: 1.1em;
+            color: #ff6666;
+            flex: 1;
+        }
+
+        .notes-area {
+            width: 100%;
+            min-height: 80px;
+            background: #0a0a0a;
+            border: 1px solid #ff0000;
+            color: #ff6666;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95em;
+            resize: vertical;
+        }
+
+        .notes-area::placeholder {
+            color: #663333;
+        }
+
+        .progress-bar {
+            margin-top: 20px;
+            background: #0a0a0a;
+            border: 2px solid #ff0000;
+            height: 30px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff0000, #cc0000);
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #000;
+            font-weight: bold;
+        }
+
+        .stats {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 1.1em;
+            color: #ff6666;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>STRANGER THINGS</h1>
+        <p class="subtitle">Marathon Tracker • Seasons 1-4</p>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTracker('tracker1')">Aseel</button>
+            <button class="tab" onclick="switchTracker('tracker2')">Roya</button>
+        </div>
+
+        <div id="tracker1" class="tracker active"></div>
+        <div id="tracker2" class="tracker"></div>
+    </div>
+
+    <script>
+        const episodes = {
+            1: [
+                "Chapter One: The Vanishing of Will Byers",
+                "Chapter Two: The Weirdo on Maple Street",
+                "Chapter Three: Holly, Jolly",
+                "Chapter Four: The Body",
+                "Chapter Five: The Flea and the Acrobat",
+                "Chapter Six: The Monster",
+                "Chapter Seven: The Bathtub",
+                "Chapter Eight: The Upside Down"
+            ],
+            2: [
+                "Chapter One: MADMAX",
+                "Chapter Two: Trick or Treat, Freak",
+                "Chapter Three: The Pollywog",
+                "Chapter Four: Will the Wise",
+                "Chapter Five: Dig Dug",
+                "Chapter Six: The Spy",
+                "Chapter Seven: The Lost Sister",
+                "Chapter Eight: The Mind Flayer",
+                "Chapter Nine: The Gate"
+            ],
+            3: [
+                "Chapter One: Suzie, Do You Copy?",
+                "Chapter Two: The Mall Rats",
+                "Chapter Three: The Case of the Missing Lifeguard",
+                "Chapter Four: The Sauna Test",
+                "Chapter Five: The Flayed",
+                "Chapter Six: E Pluribus Unum",
+                "Chapter Seven: The Bite",
+                "Chapter Eight: The Battle of Starcourt"
+            ],
+            4: [
+                "Chapter One: The Hellfire Club",
+                "Chapter Two: Vecna's Curse",
+                "Chapter Three: The Monster and the Superhero",
+                "Chapter Four: Dear Billy",
+                "Chapter Five: The Nina Project",
+                "Chapter Six: The Dive",
+                "Chapter Seven: The Massacre at Hawkins Lab",
+                "Chapter Eight: Papa",
+                "Chapter Nine: The Piggyback"
+            ]
+        };
+
+        function createTracker(trackerId) {
+            const container = document.getElementById(trackerId);
+            let html = '';
+            let totalEpisodes = 0;
+
+            for (let season = 1; season <= 4; season++) {
+                html += `<div class="season">
+                    <div class="season-header">Season ${season}</div>`;
+
+                episodes[season].forEach((title, index) => {
+                    const episodeNum = index + 1;
+                    const id = `${trackerId}-s${season}e${episodeNum}`;
+                    totalEpisodes++;
+
+                    html += `
+                        <div class="episode">
+                            <div class="episode-header">
+                                <input type="checkbox" class="checkbox" id="${id}" onchange="updateProgress('${trackerId}')">
+                                <label for="${id}" class="episode-title">S${season}E${episodeNum}: ${title}</label>
+                            </div>
+                            <textarea class="notes-area" placeholder="Your theories and notes for Season 5..." 
+                                onchange="saveData('${trackerId}')"
+                                id="${id}-notes"></textarea>
+                        </div>`;
+                });
+
+                html += '</div>';
+            }
+
+            html += `
+                <div class="progress-bar">
+                    <div class="progress-fill" id="${trackerId}-progress">0%</div>
+                </div>
+                <div class="stats" id="${trackerId}-stats">0 of ${totalEpisodes} episodes watched</div>
+            `;
+
+            container.innerHTML = html;
+            loadData(trackerId);
+        }
+
+        function switchTracker(trackerId) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tracker').forEach(tracker => tracker.classList.remove('active'));
+
+            event.target.classList.add('active');
+            document.getElementById(trackerId).classList.add('active');
+        }
+
+        function updateProgress(trackerId) {
+            const checkboxes = document.querySelectorAll(`#${trackerId} .checkbox`);
+            const checked = document.querySelectorAll(`#${trackerId} .checkbox:checked`).length;
+            const total = checkboxes.length;
+            const percentage = Math.round((checked / total) * 100);
+
+            document.getElementById(`${trackerId}-progress`).style.width = percentage + '%';
+            document.getElementById(`${trackerId}-progress`).textContent = percentage + '%';
+            document.getElementById(`${trackerId}-stats`).textContent = `${checked} of ${total} episodes watched`;
+
+            saveData(trackerId);
+        }
+
+        function saveData(trackerId) {
+            const data = {
+                checked: [],
+                notes: {}
+            };
+
+            document.querySelectorAll(`#${trackerId} .checkbox`).forEach(checkbox => {
+                if (checkbox.checked) {
+                    data.checked.push(checkbox.id);
+                }
+            });
+
+            document.querySelectorAll(`#${trackerId} .notes-area`).forEach(textarea => {
+                if (textarea.value) {
+                    data.notes[textarea.id] = textarea.value;
+                }
+            });
+
+            localStorage.setItem(trackerId, JSON.stringify(data));
+        }
+
+        function loadData(trackerId) {
+            const saved = localStorage.getItem(trackerId);
+            if (saved) {
+                const data = JSON.parse(saved);
+
+                data.checked.forEach(id => {
+                    const checkbox = document.getElementById(id);
+                    if (checkbox) checkbox.checked = true;
+                });
+
+                Object.keys(data.notes).forEach(id => {
+                    const textarea = document.getElementById(id);
+                    if (textarea) textarea.value = data.notes[id];
+                });
+
+                updateProgress(trackerId);
+            }
+        }
+
+        createTracker('tracker1');
+        createTracker('tracker2');
+    </script>
+</body>
+
+</html>
